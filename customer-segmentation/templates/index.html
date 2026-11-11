@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CustomerLens</title>
+<style>
+:root{--bg:#0b1020;--panel:#141c31;--muted:#9aa8c7;--text:#f4f7ff;--accent:#77e0c1;--line:#283451}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(135deg,#0b1020,#101b2d);color:var(--text);font:15px Inter,system-ui,Arial}
+header{padding:25px 5%;border-bottom:1px solid var(--line);font-size:21px;font-weight:800}header span{color:var(--accent)}
+main{max-width:1150px;margin:34px auto;padding:0 20px}.eyebrow{color:var(--accent);font-weight:700;letter-spacing:2px;font-size:11px;text-transform:uppercase}
+h1{font-size:clamp(30px,5vw,48px);margin:9px 0}.sub,.note{color:var(--muted);line-height:1.6}.layout{display:grid;grid-template-columns:320px 1fr;gap:18px}
+.panel,.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}.panel h2{margin-top:0;font-size:18px}
+label{display:block;color:var(--muted);font-size:13px;margin:15px 0 7px}input,select{width:100%;background:#0d1528;border:1px solid var(--line);border-radius:9px;padding:12px;color:var(--text)}
+button{background:var(--accent);border:0;color:#092018;font-weight:800;padding:13px;border-radius:9px;width:100%;margin-top:18px;cursor:pointer}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.label{color:var(--muted);font-size:12px}.metric{font-size:25px;font-weight:800;margin-top:8px}
+.tag{display:inline-block;background:#193c3b;color:var(--accent);padding:5px 9px;border-radius:20px;font-size:11px;margin:2px}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;padding:10px 7px;border-bottom:1px solid var(--line)}th{color:var(--muted)}
+.alert{padding:12px;background:#44242b;color:#ffd5dc;border-radius:9px;margin:12px 0}
+svg{width:100%;height:260px;background:#0d1528;border-radius:12px}footer{text-align:center;color:var(--muted);padding:28px;font-size:12px}
+@media(max-width:850px){.layout{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,1fr)}}
+</style></head><body><header>◈ Customer<span>Lens</span></header><main>
+<div class="eyebrow">Understand customers. Find patterns.</div><h1>Customer Segmentation Studio</h1>
+<p class="sub">Discover customer groups using clustering and explore hidden patterns with dimensionality reduction.</p>
+{% with messages=get_flashed_messages() %}{% for m in messages %}<div class="alert">{{m}}</div>{% endfor %}{% endwith %}
+<div class="layout"><section class="panel"><h2>Run analysis</h2><form method="post" enctype="multipart/form-data">
+<label>Upload customer CSV (optional)</label><input type="file" name="dataset" accept=".csv">
+<p class="note">Leave empty to use the included synthetic demo data.</p>
+<label>Number of clusters</label><select name="clusters">{% for i in range(2,9) %}<option value="{{i}}" {% if i==4 %}selected{% endif %}>{{i}}</option>{% endfor %}</select>
+<button>Run segmentation →</button></form><hr style="border:0;border-top:1px solid #283451;margin:22px 0">
+<h2>Methods</h2><span class="tag">K-Means</span><span class="tag">GMM</span><span class="tag">PCA</span><span class="tag">Factor Analysis</span>
+<p class="note">PCA and Factor Analysis are dimensionality-reduction methods, not clustering algorithms.</p></section>
+<section>{% if result %}
+<div class="grid">
+<div class="card"><div class="label">Customers</div><div class="metric">{{result.count}}</div></div>
+<div class="card"><div class="label">Features</div><div class="metric">{{result.features}}</div></div>
+<div class="card"><div class="label">K-Means silhouette</div><div class="metric">{{result.kmeans_silhouette if result.kmeans_silhouette is not none else "N/A"}}</div></div>
+<div class="card"><div class="label">GMM silhouette</div><div class="metric">{{result.gmm_silhouette if result.gmm_silhouette is not none else "N/A"}}</div></div></div>
+<div class="panel"><h2>Customer map · PCA projection</h2><p class="note">PCA two-dimensional projection retains {{(result.pca_variance*100)|round(1)}}% of variance. Dot colour shows K-Means cluster.</p>
+<svg id="plot" viewBox="0 0 650 280"></svg></div>
+<div class="panel"><h2>K-Means cluster profiles</h2><div style="overflow:auto"><table><tr><th>Cluster</th><th>Customers</th>{% for c in result.numeric_columns[:3] %}<th>Avg {{c}}</th>{% endfor %}</tr>
+{% for r in result.summaries %}<tr><td>{{r.cluster}}</td><td>{{r.customers}}</td>{% for c in result.numeric_columns[:3] %}<td>{{r[c]}}</td>{% endfor %}</tr>{% endfor %}</table></div></div>
+<div class="panel"><h2>Data preview</h2><div style="overflow:auto"><table><tr>{% for c in result.preview_columns %}<th>{{c}}</th>{% endfor %}</tr>{% for row in result.preview %}<tr>{% for c in result.preview_columns %}<td>{{row[c]}}</td>{% endfor %}</tr>{% endfor %}</table></div></div>
+<script>
+const p={{result.points|tojson}},s=document.getElementById('plot'),xs=p.map(a=>a.x),ys=p.map(a=>a.y),lo=Math.min(...xs),hi=Math.max(...xs),ly=Math.min(...ys),hy=Math.max(...ys),col=['#77e0c1','#f6bd60','#a78bfa','#fb7185','#60a5fa','#f472b6','#bef264','#f97316'];
+let h='<line x1="35" y1="250" x2="630" y2="250" stroke="#40506f"/><line x1="35" y1="15" x2="35" y2="250" stroke="#40506f"/>';
+p.forEach(a=>{let x=45+(a.x-lo)/(hi-lo||1)*570,y=240-(a.y-ly)/(hy-ly||1)*210;h+=`<circle cx="${x}" cy="${y}" r="4" fill="${col[(a.cluster-1)%col.length]}" opacity=".85"><title>Cluster ${a.cluster}</title></circle>`});s.innerHTML=h;
+</script>
+{% else %}<div class="panel"><h2>Your customer insights start here</h2><p class="sub">Run the built-in sample analysis or upload your own CSV. The dashboard will create cluster profiles, a PCA plot and silhouette diagnostics.</p>
+<div class="grid"><div class="card"><div class="label">Clustering</div><div class="metric">K-Means</div><p class="note">Partitions records into groups.</p></div><div class="card"><div class="label">Probabilistic clustering</div><div class="metric">GMM</div><p class="note">Models overlapping distributions.</p></div><div class="card"><div class="label">Dimension reduction</div><div class="metric">PCA</div><p class="note">Projects data into fewer dimensions.</p></div><div class="card"><div class="label">Latent patterns</div><div class="metric">Factor Analysis</div><p class="note">Finds underlying factors.</p></div></div></div>{% endif %}</section></div></main>
+<footer>CustomerLens · Educational demonstration · Synthetic sample data is clearly labelled</footer></body></html>
